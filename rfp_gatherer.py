@@ -16,6 +16,40 @@ import sys
 class RFPGatherer:
     """Main class for gathering RFP data from government websites."""
     
+    # Sample RFP data for demonstration when scraping fails
+    SAMPLE_INDIANA_RFPS = [
+        {
+            "title": "Technology Services for State Systems",
+            "agency": "Indiana Department of Administration",
+            "posted_date": "2024-02-01",
+            "due_date": "2024-03-15",
+            "notice_id": "IN-IDOA-001-2024",
+            "description": "Request for proposals for technology services and systems integration",
+            "source": "Indiana IDOA",
+            "url": "https://www.in.gov/idoa/procurement/current-business-opportunities/"
+        },
+        {
+            "title": "Consulting Services for Digital Transformation",
+            "agency": "Indiana Department of Administration",
+            "posted_date": "2024-02-05",
+            "due_date": "2024-03-20",
+            "notice_id": "IN-IDOA-002-2024",
+            "description": "State-wide digital transformation consulting and implementation services",
+            "source": "Indiana IDOA",
+            "url": "https://www.in.gov/idoa/procurement/current-business-opportunities/"
+        },
+        {
+            "title": "Cloud Migration and Infrastructure Services",
+            "agency": "Indiana Department of Administration",
+            "posted_date": "2024-02-10",
+            "due_date": "2024-03-25",
+            "notice_id": "IN-IDOA-003-2024",
+            "description": "Cloud infrastructure services for state agency systems migration",
+            "source": "Indiana IDOA",
+            "url": "https://www.in.gov/idoa/procurement/current-business-opportunities/"
+        }
+    ]
+    
     def __init__(self, config_file='config.json'):
         """Initialize the RFP gatherer with configuration."""
         with open(config_file, 'r') as f:
@@ -93,15 +127,16 @@ class RFPGatherer:
                     agency = "Indiana Department of Administration"
                     
                     # Try to extract dates (common patterns: MM/DD/YYYY, YYYY-MM-DD)
-                    import re
                     date_pattern = r'\d{1,2}/\d{1,2}/\d{4}|\d{4}-\d{2}-\d{2}'
                     dates = re.findall(date_pattern, text_content)
                     
                     posted_date = dates[0] if len(dates) > 0 else datetime.now().strftime('%Y-%m-%d')
                     due_date = dates[1] if len(dates) > 1 else ""
                     
-                    # Generate a notice ID
-                    notice_id = f"IN-IDOA-{hash(title) % 10000:04d}"
+                    # Generate a notice ID using abs(hash) to avoid negative values
+                    # Include posted_date to make IDs more unique
+                    hash_value = abs(hash(f"{title}_{posted_date}")) % 10000
+                    notice_id = f"IN-IDOA-{hash_value:04d}"
                     
                     # Extract description (first 200 chars of text)
                     description = text_content[:200].strip()
@@ -128,75 +163,13 @@ class RFPGatherer:
             # If no RFPs found through scraping, return sample data for demonstration
             if not rfps:
                 print("Note: Could not scrape live data. Using sample data for demonstration.")
-                rfps = [
-                    {
-                        "title": "Technology Services for State Systems",
-                        "agency": "Indiana Department of Administration",
-                        "posted_date": "2024-02-01",
-                        "due_date": "2024-03-15",
-                        "notice_id": "IN-IDOA-001-2024",
-                        "description": "Request for proposals for technology services and systems integration",
-                        "source": "Indiana IDOA",
-                        "url": url
-                    },
-                    {
-                        "title": "Consulting Services for Digital Transformation",
-                        "agency": "Indiana Department of Administration",
-                        "posted_date": "2024-02-05",
-                        "due_date": "2024-03-20",
-                        "notice_id": "IN-IDOA-002-2024",
-                        "description": "State-wide digital transformation consulting and implementation services",
-                        "source": "Indiana IDOA",
-                        "url": url
-                    },
-                    {
-                        "title": "Cloud Migration and Infrastructure Services",
-                        "agency": "Indiana Department of Administration",
-                        "posted_date": "2024-02-10",
-                        "due_date": "2024-03-25",
-                        "notice_id": "IN-IDOA-003-2024",
-                        "description": "Cloud infrastructure services for state agency systems migration",
-                        "source": "Indiana IDOA",
-                        "url": url
-                    }
-                ]
+                rfps = self.SAMPLE_INDIANA_RFPS.copy()
             
         except requests.exceptions.RequestException as e:
             print(f"Warning: Failed to fetch data from Indiana IDOA website: {e}")
             print("Using sample data for demonstration purposes.")
             # Return sample data if request fails
-            rfps = [
-                {
-                    "title": "Technology Services for State Systems",
-                    "agency": "Indiana Department of Administration",
-                    "posted_date": "2024-02-01",
-                    "due_date": "2024-03-15",
-                    "notice_id": "IN-IDOA-001-2024",
-                    "description": "Request for proposals for technology services and systems integration",
-                    "source": "Indiana IDOA",
-                    "url": url
-                },
-                {
-                    "title": "Consulting Services for Digital Transformation",
-                    "agency": "Indiana Department of Administration",
-                    "posted_date": "2024-02-05",
-                    "due_date": "2024-03-20",
-                    "notice_id": "IN-IDOA-002-2024",
-                    "description": "State-wide digital transformation consulting and implementation services",
-                    "source": "Indiana IDOA",
-                    "url": url
-                },
-                {
-                    "title": "Cloud Migration and Infrastructure Services",
-                    "agency": "Indiana Department of Administration",
-                    "posted_date": "2024-02-10",
-                    "due_date": "2024-03-25",
-                    "notice_id": "IN-IDOA-003-2024",
-                    "description": "Cloud infrastructure services for state agency systems migration",
-                    "source": "Indiana IDOA",
-                    "url": url
-                }
-            ]
+            rfps = self.SAMPLE_INDIANA_RFPS.copy()
         except Exception as e:
             print(f"Error: Unexpected error while fetching RFPs: {e}")
             rfps = []
