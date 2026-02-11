@@ -1,14 +1,9 @@
 {
   "government_websites": [
     {
-      "name": "SAM.gov",
-      "url": "https://sam.gov/search",
-      "description": "U.S. Government's primary platform for contract opportunities"
-    },
-    {
-      "name": "FedBizOpps",
-      "url": "https://sam.gov/search",
-      "description": "Federal Business Opportunities"
+      "name": "Indiana IDOA",
+      "url": "https://www.in.gov/idoa/procurement/current-business-opportunities/",
+      "description": "Indiana Department of Administration - Current Business Opportunities"
     }
   ],
   "output_file": "rfp_data.json",
