@@ -1,0 +1,20 @@
+{
+  "government_websites": [
+    {
+      "name": "SAM.gov",
+      "url": "https://sam.gov/search",
+      "description": "U.S. Government's primary platform for contract opportunities"
+    },
+    {
+      "name": "FedBizOpps",
+      "url": "https://sam.gov/search",
+      "description": "Federal Business Opportunities"
+    }
+  ],
+  "output_file": "rfp_data.json",
+  "search_keywords": [
+    "software",
+    "IT services",
+    "technology"
+  ]
+}
