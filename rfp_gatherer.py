@@ -5,8 +5,8 @@ Aggregates RFPs from government websites and saves them to a file.
 """
 
 import json
-import requests
-from bs4 import BeautifulSoup
+import requests  # Reserved for future API calls to government websites
+from bs4 import BeautifulSoup  # Reserved for future web scraping implementation
 from datetime import datetime
 from typing import List, Dict
 import sys
