@@ -10,6 +10,7 @@ import requests  # Reserved for future API calls to government websites
 from bs4 import BeautifulSoup  # Reserved for future web scraping implementation
 from datetime import datetime
 from typing import List, Dict
+from copy import deepcopy
 import sys
 
 
@@ -163,13 +164,13 @@ class RFPGatherer:
             # If no RFPs found through scraping, return sample data for demonstration
             if not rfps:
                 print("Note: Could not scrape live data. Using sample data for demonstration.")
-                rfps = self.SAMPLE_INDIANA_RFPS.copy()
+                rfps = deepcopy(self.SAMPLE_INDIANA_RFPS)
             
         except requests.exceptions.RequestException as e:
             print(f"Warning: Failed to fetch data from Indiana IDOA website: {e}")
             print("Using sample data for demonstration purposes.")
             # Return sample data if request fails
-            rfps = self.SAMPLE_INDIANA_RFPS.copy()
+            rfps = deepcopy(self.SAMPLE_INDIANA_RFPS)
         except Exception as e:
             print(f"Error: Unexpected error while fetching RFPs: {e}")
             rfps = []
