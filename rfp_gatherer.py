@@ -20,35 +20,28 @@ import sys
 class RFPGatherer:
     """Main class for gathering RFP data from government websites."""
     
+    # Only include RFPs from this agency
+    TARGET_AGENCY = "Education"
+    
     # Sample RFP data for demonstration when scraping fails
     SAMPLE_INDIANA_RFPS = [
         {
-            "title": "Technology Services for State Systems",
-            "agency": "Indiana Department of Administration",
+            "title": "Educational Technology Services",
+            "agency": "Education",
             "posted_date": "2024-02-01",
             "due_date": "2024-03-15",
-            "notice_id": "IN-IDOA-001-2024",
-            "description": "Request for proposals for technology services and systems integration",
+            "notice_id": "IN-IDOA-0001",
+            "description": "Request for proposals for educational technology services",
             "source": "Indiana IDOA",
             "url": "https://www.in.gov/idoa/procurement/current-business-opportunities/"
         },
         {
-            "title": "Consulting Services for Digital Transformation",
-            "agency": "Indiana Department of Administration",
+            "title": "Student Information System Upgrade",
+            "agency": "Education",
             "posted_date": "2024-02-05",
             "due_date": "2024-03-20",
-            "notice_id": "IN-IDOA-002-2024",
-            "description": "State-wide digital transformation consulting and implementation services",
-            "source": "Indiana IDOA",
-            "url": "https://www.in.gov/idoa/procurement/current-business-opportunities/"
-        },
-        {
-            "title": "Cloud Migration and Infrastructure Services",
-            "agency": "Indiana Department of Administration",
-            "posted_date": "2024-02-10",
-            "due_date": "2024-03-25",
-            "notice_id": "IN-IDOA-003-2024",
-            "description": "Cloud infrastructure services for state agency systems migration",
+            "notice_id": "IN-IDOA-0002",
+            "description": "Upgrade and support for the statewide student information system",
             "source": "Indiana IDOA",
             "url": "https://www.in.gov/idoa/procurement/current-business-opportunities/"
         }
@@ -65,7 +58,8 @@ class RFPGatherer:
         Fetch RFPs from Indiana IDOA procurement website.
         
         Scrapes the Indiana Department of Administration's current business
-        opportunities page to gather RFP information.
+        opportunities page, extracts the Agency and Bid Documents link from
+        each table row, and returns only entries where Agency is "Education".
         """
         rfps = []
         url = "https://www.in.gov/idoa/procurement/current-business-opportunities/"
@@ -83,54 +77,71 @@ class RFPGatherer:
             # Parse HTML with BeautifulSoup
             soup = BeautifulSoup(response.text, 'html.parser')
             
-            # Find RFP listings - common patterns on government websites
-            # Look for tables, lists, or sections containing RFP information
-            rfp_elements = []
+            # Find the procurement table on the page
+            table = soup.find('table')
+            if not table:
+                print("Note: Could not find table on page. Using sample data for demonstration.")
+                return deepcopy(self.SAMPLE_INDIANA_RFPS)
             
-            # Try multiple common selectors for government procurement pages
-            # Pattern 1: Table rows
-            table_rows = soup.find_all('tr')
-            for row in table_rows:
-                cells = row.find_all(['td', 'th'])
-                if len(cells) >= 3:  # Likely contains RFP data
-                    rfp_elements.append(row)
+            # Parse header row to find column indices for "Agency" and "Bid Documents"
+            header_row = table.find('tr')
+            if not header_row:
+                print("Note: Could not find table header. Using sample data for demonstration.")
+                return deepcopy(self.SAMPLE_INDIANA_RFPS)
             
-            # Pattern 2: List items in specific sections
-            lists = soup.find_all(['ul', 'ol'])
-            for ul in lists:
-                items = ul.find_all('li')
-                if items:
-                    rfp_elements.extend(items)
+            headers_cells = header_row.find_all(['th', 'td'])
+            col_map = {}
+            for i, cell in enumerate(headers_cells):
+                col_map[cell.get_text(strip=True).lower()] = i
             
-            # Pattern 3: Article or section elements
-            articles = soup.find_all(['article', 'section'])
-            rfp_elements.extend(articles)
+            agency_idx = col_map.get('agency')
+            bid_docs_idx = col_map.get('bid documents')
+            title_idx = col_map.get('title') or col_map.get('description') or col_map.get('subject')
             
-            # Extract RFP data from found elements
-            for element in rfp_elements:
+            # Extract RFP data from each data row
+            rows = table.find_all('tr')[1:]  # Skip header row
+            for row in rows:
                 try:
-                    # Extract title - look for links or headings
-                    title_elem = element.find(['a', 'h1', 'h2', 'h3', 'h4', 'strong'])
-                    if not title_elem:
+                    cells = row.find_all(['td', 'th'])
+                    if not cells:
                         continue
                     
-                    title = title_elem.get_text(strip=True)
-                    if not title or len(title) < 5:  # Skip if title is too short
+                    # Extract Agency value
+                    if agency_idx is not None and agency_idx < len(cells):
+                        agency = cells[agency_idx].get_text(strip=True)
+                    else:
+                        agency = ""
+                    
+                    # Only include Education agency entries
+                    if agency != self.TARGET_AGENCY:
                         continue
                     
-                    # Extract URL if available
-                    link = element.find('a')
-                    rfp_url = link.get('href', '') if link else ''
-                    if rfp_url and not rfp_url.startswith('http'):
-                        rfp_url = 'https://www.in.gov' + rfp_url
+                    # Extract Bid Documents URL
+                    rfp_url = ""
+                    if bid_docs_idx is not None and bid_docs_idx < len(cells):
+                        bid_link = cells[bid_docs_idx].find('a')
+                        if bid_link:
+                            rfp_url = bid_link.get('href', '')
+                            if rfp_url and not rfp_url.startswith('http'):
+                                rfp_url = 'https://www.in.gov' + rfp_url
                     
-                    # Extract dates and other info from text
-                    text_content = element.get_text()
+                    # Extract title
+                    title = ""
+                    if title_idx is not None and title_idx < len(cells):
+                        title = cells[title_idx].get_text(strip=True)
+                    if not title:
+                        # Fall back to first cell with meaningful text
+                        for cell in cells:
+                            text = cell.get_text(strip=True)
+                            if text and len(text) > 5:
+                                title = text
+                                break
                     
-                    # Try to extract agency name
-                    agency = "Indiana Department of Administration"
+                    if not title or len(title) < 5:
+                        continue
                     
-                    # Try to extract dates (common patterns: MM/DD/YYYY, YYYY-MM-DD)
+                    # Extract dates and other info from row text
+                    text_content = row.get_text()
                     date_pattern = r'\d{1,2}/\d{1,2}/\d{4}|\d{4}-\d{2}-\d{2}'
                     dates = re.findall(date_pattern, text_content)
                     
@@ -138,11 +149,10 @@ class RFPGatherer:
                     due_date = dates[1] if len(dates) > 1 else ""
                     
                     # Generate a notice ID using abs(hash) to avoid negative values
-                    # Include posted_date to make IDs more unique
                     hash_value = abs(hash(f"{title}_{posted_date}")) % 10000
                     notice_id = f"IN-IDOA-{hash_value:04d}"
                     
-                    # Extract description (first 200 chars of text)
+                    # Extract description (first 200 chars of row text)
                     description = text_content[:200].strip()
                     
                     rfp = {
@@ -156,12 +166,10 @@ class RFPGatherer:
                         "url": rfp_url or url
                     }
                     
-                    # Only add if we have meaningful data
-                    if title and len(title) > 10:
-                        rfps.append(rfp)
+                    rfps.append(rfp)
                         
-                except Exception as e:
-                    # Skip individual elements that fail to parse
+                except Exception:
+                    # Skip individual rows that fail to parse
                     continue
             
             # If no RFPs found through scraping, return sample data for demonstration
