@@ -13,8 +13,7 @@
     "technology"
   ],
   "ai_filter": {
-    "model": "gpt-3.5-turbo",
-    "temperature": 0
+    "model": "facebook/bart-large-mnli"
   },
   "email": {
     "recipient": "matt@thirdcoasted.com",
