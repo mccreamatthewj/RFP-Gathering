@@ -26,6 +26,9 @@ wheels/
 # RFP output files
 rfp_data.json
 
+# Environment variables (contains sensitive credentials)
+.env
+
 # IDE
 .vscode/
 .idea/
