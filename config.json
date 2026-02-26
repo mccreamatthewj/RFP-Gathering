@@ -12,6 +12,9 @@
     "IT services",
     "technology"
   ],
+  "ai_filter": {
+    "model": "facebook/bart-large-mnli"
+  },
   "email": {
     "recipient": "matt@thirdcoasted.com",
     "smtp_host": "smtp.gmail.com",
