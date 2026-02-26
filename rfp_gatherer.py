@@ -203,6 +203,7 @@ class RFPGatherer:
 
         ai_config = self.config.get('ai_filter', {})
         model_name = ai_config.get('model', 'facebook/bart-large-mnli')
+        threshold = float(ai_config.get('threshold', 0.7))
 
         try:
             print(f"Loading AI classification model '{model_name}' (downloading on first run)...")
@@ -211,14 +212,29 @@ class RFPGatherer:
             print(f"Warning: Could not load AI model: {e}. Including all RFPs.")
             return rfps
 
-        candidate_labels = ["education", "non-education"]
+        # Specific education-related labels give the model a clearer target than
+        # a single broad "education" label, reducing false positives.
+        education_labels = [
+            "K-12 education",
+            "higher education",
+            "educational technology",
+            "workforce training and education",
+            "school or university services",
+        ]
+        non_education_label = "unrelated to education"
+        candidate_labels = education_labels + [non_education_label]
+
         filtered = []
 
         for rfp in rfps:
             text = f"{rfp.get('title', '')}. {rfp.get('description', '')}"
             try:
                 result = classifier(text, candidate_labels=candidate_labels)
-                if result['labels'][0] == 'education':
+                top_label = result['labels'][0]
+                top_score = result['scores'][0]
+                # Keep only RFPs where the highest-scoring label is one of the
+                # explicit education labels and meets the confidence threshold.
+                if top_label in education_labels and top_score >= threshold:
                     filtered.append(rfp)
             except Exception as e:
                 print(f"Warning: Classification failed for '{rfp['title']}': {e}. Including item.")
