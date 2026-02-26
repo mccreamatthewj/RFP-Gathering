@@ -5,7 +5,11 @@ Aggregates RFPs from government websites and saves them to a file.
 """
 
 import json
+import os
 import re
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 import requests  # Reserved for future API calls to government websites
 from bs4 import BeautifulSoup  # Reserved for future web scraping implementation
 from datetime import datetime
@@ -206,6 +210,64 @@ class RFPGatherer:
         print(f"RFP data saved to {filename}")
         return filename
     
+    def send_email(self, output_file=None):
+        """Email the RFP data to the configured recipient.
+        
+        SMTP credentials are read from the environment variables
+        SMTP_USER and SMTP_PASSWORD.
+        """
+        email_config = self.config.get('email', {})
+        recipient = email_config.get('recipient')
+        smtp_host = email_config.get('smtp_host', 'smtp.gmail.com')
+        smtp_port = email_config.get('smtp_port', 587)
+        subject = email_config.get('subject', 'RFP Gathering Results')
+
+        smtp_user = os.environ.get('SMTP_USER')
+        smtp_password = os.environ.get('SMTP_PASSWORD')
+
+        if not smtp_user or not smtp_password:
+            print("Warning: SMTP_USER or SMTP_PASSWORD environment variables not set. Skipping email.")
+            return
+
+        if not recipient:
+            print("Warning: No email recipient configured. Skipping email.")
+            return
+
+        # Build plain-text body with RFP summary
+        lines = [
+            f"RFP Gathering Results – {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
+            f"Total RFPs Found: {len(self.rfps)}",
+            "",
+        ]
+        for i, rfp in enumerate(self.rfps, 1):
+            lines.append(f"{i}. {rfp['title']}")
+            lines.append(f"   Agency: {rfp['agency']}")
+            lines.append(f"   Posted: {rfp['posted_date']} | Due: {rfp['due_date']}")
+            lines.append(f"   Notice ID: {rfp['notice_id']}")
+            lines.append(f"   Source: {rfp['source']}")
+            lines.append(f"   URL: {rfp['url']}")
+            lines.append("")
+
+        if output_file:
+            lines.append(f"Full data saved to: {output_file}")
+
+        body = "\n".join(lines)
+
+        msg = MIMEMultipart()
+        msg['From'] = smtp_user
+        msg['To'] = recipient
+        msg['Subject'] = subject
+        msg.attach(MIMEText(body, 'plain'))
+
+        try:
+            with smtplib.SMTP(smtp_host, smtp_port) as server:
+                server.starttls()
+                server.login(smtp_user, smtp_password)
+                server.sendmail(smtp_user, recipient, msg.as_string())
+            print(f"RFP data emailed to {recipient}")
+        except Exception as e:
+            print(f"Warning: Failed to send email to {recipient}: {e}")
+
     def display_summary(self):
         """Display a summary of collected RFPs."""
         print("\n" + "="*80)
@@ -243,6 +305,9 @@ def main():
         # Save to file
         output_file = gatherer.save_to_file()
         
+        # Email the results
+        gatherer.send_email(output_file)
+
         print(f"\nSuccess! RFP data has been saved to {output_file}")
         print("You can view the data by opening the JSON file.")
         
