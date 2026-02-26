@@ -12,10 +12,6 @@
     "IT services",
     "technology"
   ],
-  "ai_filter": {
-    "model": "typeform/distilbert-base-uncased-mnli",
-    "threshold": 0.7
-  },
   "email": {
     "recipient": "matt@thirdcoasted.com",
     "smtp_host": "smtp.gmail.com",

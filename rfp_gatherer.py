@@ -16,7 +16,6 @@ from datetime import datetime
 from typing import List, Dict
 from copy import deepcopy
 import sys
-from transformers import pipeline
 
 class RFPGatherer:
     """Main class for gathering RFP data from government websites."""
@@ -60,7 +59,6 @@ class RFPGatherer:
         with open(config_file, 'r') as f:
             self.config = json.load(f)
         self.rfps = []
-        self.total_rfps_before_filter = 0
     
     def fetch_indiana_idoa_rfps(self) -> List[Dict]:
         """
@@ -182,67 +180,6 @@ class RFPGatherer:
         
         return rfps
     
-    def filter_education_rfps(self, rfps: List[Dict]) -> List[Dict]:
-        """Use a local AI model to filter RFPs and return only education-related ones.
-
-        Uses Hugging Face's zero-shot classification pipeline with a pre-trained
-        NLI model to determine whether each RFP is education-related.  The model
-        is downloaded automatically on the first run and cached locally — no API
-        key is required.
-
-        If the model fails to load or classify, all RFPs are returned unchanged
-        so the rest of the pipeline continues to work.
-
-        Stores the original count in ``self.total_rfps_before_filter`` for
-        reporting purposes.
-        """
-        self.total_rfps_before_filter = len(rfps)
-
-        if not rfps:
-            return rfps
-
-        ai_config = self.config.get('ai_filter', {})
-        model_name = ai_config.get('model', 'facebook/bart-large-mnli')
-        threshold = float(ai_config.get('threshold', 0.7))
-
-        try:
-            print(f"Loading AI classification model '{model_name}' (downloading on first run)...")
-            classifier = pipeline("zero-shot-classification", model=model_name)
-        except Exception as e:
-            print(f"Warning: Could not load AI model: {e}. Including all RFPs.")
-            return rfps
-
-        # Specific education-related labels give the model a clearer target than
-        # a single broad "education" label, reducing false positives.
-        education_labels = [
-            "K-12 education",
-            "higher education",
-            "educational technology",
-            "workforce training and education",
-            "school or university services",
-        ]
-        non_education_label = "unrelated to education"
-        candidate_labels = education_labels + [non_education_label]
-
-        filtered = []
-
-        for rfp in rfps:
-            text = f"{rfp.get('title', '')}. {rfp.get('description', '')}"
-            try:
-                result = classifier(text, candidate_labels=candidate_labels)
-                top_label = result['labels'][0]
-                top_score = result['scores'][0]
-                # Keep only RFPs where the highest-scoring label is one of the
-                # explicit education labels and meets the confidence threshold.
-                if top_label in education_labels and top_score >= threshold:
-                    filtered.append(rfp)
-            except Exception as e:
-                print(f"Warning: Classification failed for '{rfp['title']}': {e}. Including item.")
-                filtered.append(rfp)
-
-        print(f"AI filter: {len(filtered)} of {len(rfps)} RFPs identified as education-related.")
-        return filtered
-
     def gather_rfps(self):
         """Gather RFPs from all configured sources."""
         print("Starting RFP gathering process...")
@@ -298,7 +235,7 @@ class RFPGatherer:
         # Build plain-text body with RFP summary
         lines = [
             f"RFP Gathering Results – {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
-            f"Education-Related RFPs Found: {len(self.rfps)} of {self.total_rfps_before_filter}",
+            f"Total RFPs Found: {len(self.rfps)}",
             "",
         ]
         for i, rfp in enumerate(self.rfps, 1):
@@ -361,9 +298,6 @@ def main():
         # Gather RFPs
         gatherer.gather_rfps()
         
-        # Filter to education-related RFPs using AI
-        gatherer.rfps = gatherer.filter_education_rfps(gatherer.rfps)
-
         # Display summary
         gatherer.display_summary()
         
