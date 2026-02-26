@@ -12,6 +12,10 @@
     "IT services",
     "technology"
   ],
+  "ai_filter": {
+    "model": "gpt-3.5-turbo",
+    "temperature": 0
+  },
   "email": {
     "recipient": "matt@thirdcoasted.com",
     "smtp_host": "smtp.gmail.com",

@@ -6,6 +6,7 @@ A tool to aggregate Request for Proposals (RFPs) from government websites and sa
 
 - Aggregates RFPs from the Indiana Department of Administration (IDOA) procurement website
 - Uses web scraping with BeautifulSoup to extract RFP data
+- **AI-powered education filter**: an AI agent reviews each listing and keeps only education-related RFPs before emailing them to you
 - Saves RFP information in JSON format for easy viewing
 - Displays a summary of collected RFPs
 - Configurable via `config.json`
@@ -34,8 +35,10 @@ python rfp_gatherer.py
 
 The tool will:
 1. Gather RFPs from the Indiana IDOA procurement website
-2. Display a summary in the terminal
-3. Save all RFP data to `rfp_data.json`
+2. Use an AI agent to filter the listings, keeping only education-related RFPs
+3. Display a summary in the terminal
+4. Save all education-related RFP data to `rfp_data.json`
+5. Email the education-related results to the configured recipient
 
 ## Output Format
 
@@ -66,6 +69,7 @@ Edit `config.json` to customize:
 - Government websites to scrape
 - Output file name
 - Search keywords
+- AI filter model and temperature (under the `ai_filter` key)
 - Email recipient, SMTP host, SMTP port, and subject line
 
 ### Email Setup
@@ -91,6 +95,21 @@ The tool emails the RFP results after each run. SMTP credentials are supplied vi
    ```
 
 The SMTP host, port, and recipient address are configured in `config.json` under the `email` key.
+
+### AI Education Filter Setup
+
+The tool uses OpenAI's API to review each RFP listing and keep only those relevant to education-related topics.
+
+1. Obtain an [OpenAI API key](https://platform.openai.com/api-keys).
+
+2. Add it to your `.env` file:
+   ```
+   OPENAI_API_KEY=your_openai_api_key
+   ```
+
+3. Load the variables before running (as shown in the email setup step above).
+
+If `OPENAI_API_KEY` is not set, the AI filter is skipped and all gathered RFPs are included in the email.
 
 ## Viewing the Data
 

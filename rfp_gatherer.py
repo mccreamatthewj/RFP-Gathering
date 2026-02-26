@@ -16,6 +16,7 @@ from datetime import datetime
 from typing import List, Dict
 from copy import deepcopy
 import sys
+import openai
 
 
 class RFPGatherer:
@@ -60,6 +61,7 @@ class RFPGatherer:
         with open(config_file, 'r') as f:
             self.config = json.load(f)
         self.rfps = []
+        self.total_rfps_before_filter = 0
     
     def fetch_indiana_idoa_rfps(self) -> List[Dict]:
         """
@@ -181,6 +183,83 @@ class RFPGatherer:
         
         return rfps
     
+    def filter_education_rfps(self, rfps: List[Dict]) -> List[Dict]:
+        """Use an AI agent to filter RFPs and return only education-related ones.
+
+        Sends the collected RFP listings to OpenAI and asks it to identify
+        which items are relevant to education-related topics.  If the
+        OPENAI_API_KEY environment variable is not set, or if the API call
+        fails, all RFPs are returned unchanged so the rest of the pipeline
+        continues to work.
+
+        Returns the filtered list and stores the original count in
+        ``self.total_rfps_before_filter`` for reporting purposes.
+        """
+        self.total_rfps_before_filter = len(rfps)
+        api_key = os.environ.get('OPENAI_API_KEY')
+        if not api_key:
+            print("Warning: OPENAI_API_KEY not set. Skipping AI education filter.")
+            return rfps
+
+        if not rfps:
+            return rfps
+
+        # Build a numbered list of RFPs for the prompt
+        rfp_list = ""
+        for i, rfp in enumerate(rfps):
+            rfp_list += (
+                f"{i}. Title: {rfp['title']}\n"
+                f"   Agency: {rfp['agency']}\n"
+                f"   Description: {rfp.get('description', '')}\n\n"
+            )
+
+        prompt = (
+            "You are an AI assistant reviewing government RFP (Request for Proposals) listings.\n"
+            "Your task is to identify which of the following RFPs are related to education topics.\n\n"
+            "Education-related topics include (but are not limited to):\n"
+            "- K-12 education, schools, or student services\n"
+            "- Higher education or universities\n"
+            "- Educational technology (EdTech)\n"
+            "- Training, tutoring, or learning programs\n"
+            "- Curriculum development\n"
+            "- Student assessment or testing\n"
+            "- Library services\n"
+            "- Workforce development and job training\n"
+            "- Special education or disability services related to learning\n"
+            "- Early childhood education\n\n"
+            "Review the following RFPs and return ONLY a JSON array of the 0-based indices of "
+            "the education-related RFPs. Return only the JSON array, nothing else. "
+            "Example: [0, 2, 5]\n\n"
+            f"RFP Listings:\n{rfp_list}"
+        )
+
+        try:
+            client = openai.OpenAI(api_key=api_key)
+            ai_config = self.config.get('ai_filter', {})
+            model = ai_config.get('model', 'gpt-3.5-turbo')
+            temperature = ai_config.get('temperature', 0)
+            response = client.chat.completions.create(
+                model=model,
+                messages=[{"role": "user", "content": prompt}],
+                temperature=temperature,
+            )
+            result_text = response.choices[0].message.content.strip()
+            # Strip markdown code fences if present (e.g. ```json ... ```)
+            result_text = re.sub(r'^```[a-z]*\s*', '', result_text)
+            result_text = re.sub(r'\s*```$', '', result_text)
+            indices = json.loads(result_text)
+            seen = set()
+            filtered = []
+            for i in indices:
+                if isinstance(i, int) and 0 <= i < len(rfps) and i not in seen:
+                    seen.add(i)
+                    filtered.append(rfps[i])
+            print(f"AI filter: {len(filtered)} of {len(rfps)} RFPs identified as education-related.")
+            return filtered
+        except Exception as e:
+            print(f"Warning: AI education filter failed: {e}. Including all RFPs.")
+            return rfps
+
     def gather_rfps(self):
         """Gather RFPs from all configured sources."""
         print("Starting RFP gathering process...")
@@ -236,7 +315,7 @@ class RFPGatherer:
         # Build plain-text body with RFP summary
         lines = [
             f"RFP Gathering Results – {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}",
-            f"Total RFPs Found: {len(self.rfps)}",
+            f"Education-Related RFPs Found: {len(self.rfps)} of {self.total_rfps_before_filter}",
             "",
         ]
         for i, rfp in enumerate(self.rfps, 1):
@@ -299,6 +378,9 @@ def main():
         # Gather RFPs
         gatherer.gather_rfps()
         
+        # Filter to education-related RFPs using AI
+        gatherer.rfps = gatherer.filter_education_rfps(gatherer.rfps)
+
         # Display summary
         gatherer.display_summary()
         
