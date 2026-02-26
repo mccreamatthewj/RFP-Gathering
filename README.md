@@ -66,6 +66,31 @@ Edit `config.json` to customize:
 - Government websites to scrape
 - Output file name
 - Search keywords
+- Email recipient, SMTP host, SMTP port, and subject line
+
+### Email Setup
+
+The tool emails the RFP results after each run. SMTP credentials are supplied via environment variables so they are never stored in source code.
+
+1. Copy the example environment file:
+   ```bash
+   cp .env.example .env
+   ```
+
+2. Open `.env` and set your credentials:
+   ```
+   SMTP_USER=your_email@gmail.com
+   SMTP_PASSWORD=your_smtp_password
+   ```
+   > **Tip:** If you use Gmail, generate an [App Password](https://support.google.com/accounts/answer/185833) and use that as `SMTP_PASSWORD`.
+
+3. Load the variables before running the tool:
+   ```bash
+   set -a; source .env; set +a
+   python rfp_gatherer.py
+   ```
+
+The SMTP host, port, and recipient address are configured in `config.json` under the `email` key.
 
 ## Viewing the Data
 
