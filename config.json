@@ -13,7 +13,7 @@
     "technology"
   ],
   "email": {
-    "recipient": "matt@thirdcoasted.com",
+    "recipients": ["matt@thirdcoasted.com", "lindsay@thirdcoasted.com"],
     "smtp_host": "smtp.gmail.com",
     "smtp_port": 587,
     "subject": "RFP Gathering Results"

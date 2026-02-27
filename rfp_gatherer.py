@@ -261,13 +261,20 @@ class RFPGatherer:
         return filename
     
     def send_email(self, output_file=None):
-        """Email the RFP data to the configured recipient.
+        """Email the RFP data to the configured recipients.
         
         SMTP credentials are read from the environment variables
         SMTP_USER and SMTP_PASSWORD.
         """
         email_config = self.config.get('email', {})
-        recipient = email_config.get('recipient')
+        # Support both "recipients" (list) and legacy "recipient" (string)
+        recipients_cfg = email_config.get('recipients') if email_config.get('recipients') is not None else email_config.get('recipient')
+        if isinstance(recipients_cfg, str):
+            recipients = [recipients_cfg]
+        elif isinstance(recipients_cfg, list):
+            recipients = recipients_cfg
+        else:
+            recipients = []
         smtp_host = email_config.get('smtp_host', 'smtp.gmail.com')
         smtp_port = email_config.get('smtp_port', 587)
         subject = email_config.get('subject', 'RFP Gathering Results')
@@ -279,8 +286,8 @@ class RFPGatherer:
             print("Warning: SMTP_USER or SMTP_PASSWORD environment variables not set. Skipping email.")
             return
 
-        if not recipient:
-            print("Warning: No email recipient configured. Skipping email.")
+        if not recipients:
+            print("Warning: No email recipients configured. Skipping email.")
             return
 
         # Build plain-text body with RFP summary
@@ -294,6 +301,7 @@ class RFPGatherer:
             lines.append(f"   Agency: {rfp['agency']}")
             lines.append(f"   Posted: {rfp['posted_date']} | Due: {rfp['due_date']}")
             lines.append(f"   Notice ID: {rfp['notice_id']}")
+            lines.append(f"   Event Description: {rfp.get('description', '')}")
             lines.append(f"   Source: {rfp['source']}")
             lines.append(f"   URL: {rfp['url']}")
             lines.append("")
@@ -303,9 +311,10 @@ class RFPGatherer:
 
         body = "\n".join(lines)
 
+        recipients_header = ", ".join(recipients)
         msg = MIMEMultipart()
         msg['From'] = smtp_user
-        msg['To'] = recipient
+        msg['To'] = recipients_header
         msg['Subject'] = subject
         msg.attach(MIMEText(body, 'plain'))
 
@@ -313,10 +322,10 @@ class RFPGatherer:
             with smtplib.SMTP(smtp_host, smtp_port) as server:
                 server.starttls()
                 server.login(smtp_user, smtp_password)
-                server.sendmail(smtp_user, recipient, msg.as_string())
-            print(f"RFP data emailed to {recipient}")
+                server.sendmail(smtp_user, recipients, msg.as_string())
+            print(f"RFP data emailed to {recipients_header}")
         except Exception as e:
-            print(f"Warning: Failed to send email to {recipient}: {e}")
+            print(f"Warning: Failed to send email to {recipients_header}: {e}")
 
     def display_summary(self):
         """Display a summary of collected RFPs."""
@@ -330,6 +339,7 @@ class RFPGatherer:
             print(f"   Agency: {rfp['agency']}")
             print(f"   Posted: {rfp['posted_date']} | Due: {rfp['due_date']}")
             print(f"   Notice ID: {rfp['notice_id']}")
+            print(f"   Event Description: {rfp.get('description', '')}")
             print(f"   Source: {rfp['source']}")
             print(f"   URL: {rfp['url']}")
             print()
