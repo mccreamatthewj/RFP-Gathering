@@ -95,22 +95,25 @@ class RFPGatherer:
             # Parse HTML with BeautifulSoup
             soup = BeautifulSoup(response.text, 'html.parser')
             
-            # Find the procurement table on the page
-            table = soup.find('table')
-            if not table:
-                print("Note: Could not find table on page. Using sample data for demonstration.")
-                return deepcopy(self.SAMPLE_INDIANA_RFPS)
-            
-            # Parse header row to find column indices for "Agency" and "Bid Documents"
-            header_row = table.find('tr')
-            if not header_row:
-                print("Note: Could not find table header. Using sample data for demonstration.")
-                return deepcopy(self.SAMPLE_INDIANA_RFPS)
-            
-            headers_cells = header_row.find_all(['th', 'td'])
+            # Find the procurement table on the page — search all tables for the one
+            # that contains known procurement column headers (agency, bid documents, etc.)
+            known_columns = {'agency'} | set(self.BID_DOC_COLUMNS) | set(self.TITLE_COLUMNS)
+            table = None
             col_map = {}
-            for i, cell in enumerate(headers_cells):
-                col_map[cell.get_text(strip=True).lower()] = i
+            for candidate in soup.find_all('table'):
+                header_row = candidate.find('tr')
+                if not header_row:
+                    continue
+                headers_cells = header_row.find_all(['th', 'td'])
+                candidate_map = {cell.get_text(strip=True).lower(): i for i, cell in enumerate(headers_cells)}
+                if known_columns & set(candidate_map):
+                    table = candidate
+                    col_map = candidate_map
+                    break
+
+            if not table:
+                print("Note: Could not find procurement table on page. Using sample data for demonstration.")
+                return deepcopy(self.SAMPLE_INDIANA_RFPS)
             
             agency_idx = col_map.get('agency')
             bid_docs_idx = next((col_map[k] for k in self.BID_DOC_COLUMNS if k in col_map), None)
