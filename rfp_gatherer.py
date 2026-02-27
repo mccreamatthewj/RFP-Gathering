@@ -148,9 +148,21 @@ class RFPGatherer:
                         continue
                     
                     # Extract Bid Documents URL
+                    # Prefer the link labelled "Bid Documents"; fall back to the
+                    # second link (if multiple exist) or the first link otherwise.
                     rfp_url = ""
                     if bid_docs_idx is not None and bid_docs_idx < len(cells):
-                        bid_link = cells[bid_docs_idx].find('a')
+                        all_links = cells[bid_docs_idx].find_all('a')
+                        bid_link = None
+                        for lnk in all_links:
+                            if lnk.get_text(strip=True).lower() == 'bid documents':
+                                bid_link = lnk
+                                break
+                        if bid_link is None:
+                            if len(all_links) > 1:
+                                bid_link = all_links[1]
+                            elif all_links:
+                                bid_link = all_links[0]
                         if bid_link:
                             rfp_url = bid_link.get('href', '')
                             if rfp_url and not rfp_url.startswith('http'):
