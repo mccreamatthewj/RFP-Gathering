@@ -42,7 +42,7 @@ The tool will:
 1. Gather RFPs from the Indiana IDOA procurement website
 2. Display a summary in the terminal
 3. Save all RFP data to `rfp_data.json`
-4. Email the results to the configured recipient
+4. Email the results to the configured recipients
 
 ## Output Format
 
@@ -73,7 +73,7 @@ Edit `config.json` to customize:
 - Government websites to scrape
 - Output file name
 - Search keywords
-- Email recipient, SMTP host, SMTP port, and subject line
+- Email recipients, SMTP host, SMTP port, and subject line
 
 ### Email Setup
 
@@ -97,7 +97,7 @@ The tool emails the RFP results after each run. SMTP credentials are supplied vi
    python rfp_gatherer.py
    ```
 
-The SMTP host, port, and recipient address are configured in `config.json` under the `email` key.
+The SMTP host, port, and recipient addresses are configured in `config.json` under the `email` key using the `recipients` array.
 
 ## Viewing the Data
 
