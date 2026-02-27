@@ -12,6 +12,7 @@ from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 import requests  # Reserved for future API calls to government websites
 from bs4 import BeautifulSoup  # Reserved for future web scraping implementation
+from dotenv import load_dotenv
 from datetime import datetime
 from typing import List, Dict
 from copy import deepcopy
@@ -22,6 +23,10 @@ class RFPGatherer:
     
     # Only include RFPs from this agency
     TARGET_AGENCY = "Education"
+
+    # Column names to look for on the IDOA procurement table (checked in priority order)
+    TITLE_COLUMNS = ('title', 'event name', 'description', 'event description', 'subject')
+    BID_DOC_COLUMNS = ('bid documents', 'event name')
     
     # Sample RFP data for demonstration when scraping fails
     SAMPLE_INDIANA_RFPS = [
@@ -49,6 +54,7 @@ class RFPGatherer:
     
     def __init__(self, config_file='config.json'):
         """Initialize the RFP gatherer with configuration."""
+        load_dotenv()
         with open(config_file, 'r') as f:
             self.config = json.load(f)
         self.rfps = []
@@ -95,8 +101,8 @@ class RFPGatherer:
                 col_map[cell.get_text(strip=True).lower()] = i
             
             agency_idx = col_map.get('agency')
-            bid_docs_idx = col_map.get('bid documents')
-            title_idx = col_map.get('title') or col_map.get('description') or col_map.get('subject')
+            bid_docs_idx = next((col_map[k] for k in self.BID_DOC_COLUMNS if k in col_map), None)
+            title_idx = next((col_map[k] for k in self.TITLE_COLUMNS if k in col_map), None)
             
             # Extract RFP data from each data row
             rows = table.find_all('tr')[1:]  # Skip header row
@@ -112,8 +118,8 @@ class RFPGatherer:
                     else:
                         agency = ""
                     
-                    # Only include Education agency entries
-                    if agency != self.TARGET_AGENCY:
+                    # Only include Education agency entries (case-insensitive exact match)
+                    if agency.lower() != self.TARGET_AGENCY.lower():
                         continue
                     
                     # Extract Bid Documents URL
