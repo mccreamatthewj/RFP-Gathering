@@ -4,6 +4,7 @@ RFP Gathering Tool
 Aggregates RFPs from government websites and saves them to a file.
 """
 
+import html
 import json
 import os
 import re
@@ -195,8 +196,8 @@ class RFPGatherer:
                     hash_value = abs(hash(f"{title}_{posted_date}")) % 10000
                     notice_id = f"IN-IDOA-{hash_value:04d}"
                     
-                    # Extract description (first 200 chars of row text)
-                    description = text_content[:200].strip()
+                    # Extract full description, normalising whitespace
+                    description = re.sub(r'\s+', ' ', text_content).strip()
                     
                     rfp = {
                         "title": title,
@@ -312,11 +313,56 @@ class RFPGatherer:
         body = "\n".join(lines)
 
         recipients_header = ", ".join(recipients)
-        msg = MIMEMultipart()
+
+        # --- plain-text body (fallback) ---
+        msg = MIMEMultipart("alternative")
         msg['From'] = smtp_user
         msg['To'] = recipients_header
         msg['Subject'] = subject
-        msg.attach(MIMEText(body, 'plain'))
+        msg.attach(MIMEText(body, 'plain', 'utf-8'))
+
+        # --- HTML body with table ---
+        now_str = html.escape(datetime.now().strftime('%Y-%m-%d %H:%M:%S'))
+
+        def esc(v):
+            return html.escape(str(v))
+
+        html_rows = ""
+        for i, rfp in enumerate(self.rfps, 1):
+            html_rows += (
+                f"<tr>"
+                f"<td style='padding:4px 8px;border:1px solid #ccc'>{esc(i)}</td>"
+                f"<td style='padding:4px 8px;border:1px solid #ccc'>{esc(rfp['title'])}</td>"
+                f"<td style='padding:4px 8px;border:1px solid #ccc'>{esc(rfp['agency'])}</td>"
+                f"<td style='padding:4px 8px;border:1px solid #ccc'>{esc(rfp['posted_date'])}</td>"
+                f"<td style='padding:4px 8px;border:1px solid #ccc'>{esc(rfp['due_date'])}</td>"
+                f"<td style='padding:4px 8px;border:1px solid #ccc'>{esc(rfp['notice_id'])}</td>"
+                f"<td style='padding:4px 8px;border:1px solid #ccc;white-space:normal'>{esc(rfp.get('description', ''))}</td>"
+                f"<td style='padding:4px 8px;border:1px solid #ccc'>{esc(rfp['source'])}</td>"
+                f"<td style='padding:4px 8px;border:1px solid #ccc'><a href='{esc(rfp['url'])}'>{esc(rfp['url'])}</a></td>"
+                f"</tr>\n"
+            )
+        html_body = (
+            f"<html><body>"
+            f"<p><strong>RFP Gathering Results &ndash; {now_str}</strong><br>"
+            f"Total RFPs Found: {esc(len(self.rfps))}</p>"
+            f"<table style='border-collapse:collapse;font-family:Arial,sans-serif;font-size:13px'>"
+            f"<thead><tr style='background:#f2f2f2'>"
+            f"<th style='padding:4px 8px;border:1px solid #ccc'>#</th>"
+            f"<th style='padding:4px 8px;border:1px solid #ccc'>Title</th>"
+            f"<th style='padding:4px 8px;border:1px solid #ccc'>Agency</th>"
+            f"<th style='padding:4px 8px;border:1px solid #ccc'>Posted</th>"
+            f"<th style='padding:4px 8px;border:1px solid #ccc'>Due</th>"
+            f"<th style='padding:4px 8px;border:1px solid #ccc'>Notice ID</th>"
+            f"<th style='padding:4px 8px;border:1px solid #ccc'>Event Description</th>"
+            f"<th style='padding:4px 8px;border:1px solid #ccc'>Source</th>"
+            f"<th style='padding:4px 8px;border:1px solid #ccc'>URL</th>"
+            f"</tr></thead>"
+            f"<tbody>{html_rows}</tbody>"
+            f"</table>"
+            f"</body></html>"
+        )
+        msg.attach(MIMEText(html_body, 'html', 'utf-8'))
 
         try:
             with smtplib.SMTP(smtp_host, smtp_port) as server:
