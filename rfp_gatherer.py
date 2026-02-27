@@ -21,7 +21,7 @@ import sys
 class RFPGatherer:
     """Main class for gathering RFP data from government websites."""
     
-    # Only include RFPs from this agency
+    # Only include RFPs from this agency (substring match, case-insensitive)
     TARGET_AGENCY = "Education"
 
     # Column names to look for on the IDOA procurement table (checked in priority order)
@@ -58,6 +58,17 @@ class RFPGatherer:
         with open(config_file, 'r') as f:
             self.config = json.load(f)
         self.rfps = []
+        self._debug = os.environ.get('DEBUG_SCRAPE', '0').strip() == '1'
+
+    def _debug_print(self, *args, **kwargs):
+        """Print a debug message when DEBUG_SCRAPE is enabled."""
+        if self._debug:
+            print('[DEBUG]', *args, **kwargs)
+
+    def _matches_target_agency(self, text: str) -> bool:
+        """Return True if *text* contains the TARGET_AGENCY keyword as a whole word (case-insensitive)."""
+        pattern = r'\b' + re.escape(self.TARGET_AGENCY.lower()) + r'\b'
+        return bool(re.search(pattern, text.lower()))
     
     def fetch_indiana_idoa_rfps(self) -> List[Dict]:
         """
@@ -65,7 +76,8 @@ class RFPGatherer:
         
         Scrapes the Indiana Department of Administration's current business
         opportunities page, extracts the Agency and Bid Documents link from
-        each table row, and returns only entries where Agency is "Education".
+        each table row, and returns only entries where Agency contains the
+        TARGET_AGENCY keyword (case-insensitive substring match).
         """
         rfps = []
         url = "https://www.in.gov/idoa/procurement/current-business-opportunities/"
@@ -103,6 +115,9 @@ class RFPGatherer:
             agency_idx = col_map.get('agency')
             bid_docs_idx = next((col_map[k] for k in self.BID_DOC_COLUMNS if k in col_map), None)
             title_idx = next((col_map[k] for k in self.TITLE_COLUMNS if k in col_map), None)
+
+            self._debug_print(f"col_map: {col_map}")
+            self._debug_print(f"agency_idx={agency_idx}, title_idx={title_idx}, bid_docs_idx={bid_docs_idx}")
             
             # Extract RFP data from each data row
             rows = table.find_all('tr')[1:]  # Skip header row
@@ -118,8 +133,15 @@ class RFPGatherer:
                     else:
                         agency = ""
                     
-                    # Only include Education agency entries (case-insensitive exact match)
-                    if agency.lower() != self.TARGET_AGENCY.lower():
+                    # Match using case-insensitive substring; if agency cell is empty
+                    # fall back to checking the full row text for the education keyword.
+                    if agency and self._matches_target_agency(agency):
+                        self._debug_print(f"Row matched via agency column: {agency!r}")
+                    elif not agency and self._matches_target_agency(row.get_text()):
+                        agency = self.TARGET_AGENCY
+                        self._debug_print(f"Row matched via full-row text fallback; agency set to {agency!r}")
+                    else:
+                        self._debug_print(f"Row skipped (agency={agency!r})")
                         continue
                     
                     # Extract Bid Documents URL

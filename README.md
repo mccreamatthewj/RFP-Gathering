@@ -32,6 +32,12 @@ Run the RFP gathering tool:
 python rfp_gatherer.py
 ```
 
+To enable verbose debug output about table parsing (column map, chosen indices, and row-match decisions), set the `DEBUG_SCRAPE` environment variable:
+
+```bash
+DEBUG_SCRAPE=1 python rfp_gatherer.py
+```
+
 The tool will:
 1. Gather RFPs from the Indiana IDOA procurement website
 2. Display a summary in the terminal
